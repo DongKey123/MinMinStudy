@@ -6,105 +6,185 @@ using UnityEngine;
 
 public class ActionRPG : MonoBehaviour
 {
-    private Queue<int> commandQueue = new Queue<int>(5);
+    private Queue<int> actionCommandQueue = new Queue<int>(5);
+    private Queue<int> moveCommandQueue = new Queue<int>(5);
 
     private const float COMMANDTIMELIMIT = 0.5f;
-    private float curTime;
 
-    private int[] skillCommandList = { 333, 334, 328};
+    private float moveTime;
+    private float actionTime;
+
+    private int[] skillCommandList = { 664, 334, 328};
     private int skillCommandCount;
-    private bool isInput = false;
+    private bool isActionInput = false;
+    private bool isMoveInput = false;
+    private bool isSkillCommand = false;
 
     private void Awake()
     {
         skillCommandCount = skillCommandList.Length;
     }
 
-    public void InputCommand(KeyCode _commandNum)
+    public void InputActionCommand(KeyCode _commandNum)
     {
-        if(commandQueue.Count == 0)
+        Debug.Log(moveCommandQueue.Count);
+
+        if(actionCommandQueue.Count == 0)
         {
-            isInput = true;
-            curTime = 0.0f;
+            isActionInput = true;
+            actionTime = 0.0f;
         }
 
+        if(moveCommandQueue.Count >= 1)
+        {
+            isSkillCommand = true;
+        }
 
-        commandQueue.Enqueue((int)_commandNum);
+        actionCommandQueue.Enqueue((int)_commandNum);
 
+        Debug.Log(isSkillCommand);
+    }
+
+    public void InputMoveCommand(KeyCode _commandNum)
+    {
+        if(moveCommandQueue.Count == 0)
+        {
+            isMoveInput = true;
+            moveTime = 0.0f;
+        }
+
+        moveCommandQueue.Enqueue((int)_commandNum);
     }
 
     private void PlayCommand()
     {
-        Debug.Log(commandQueue.Dequeue());
+        Debug.Log(actionCommandQueue.Dequeue() + "번 액션 실행");
 
-        if(commandQueue.Count == 0)
+        if(actionCommandQueue.Count == 0 && moveCommandQueue.Count == 0)
         {
-            isInput = false;
-            curTime = 0.0f;
+            isActionInput = false;
+            actionTime = 0.0f;
         }
     }
 
     private void Update()
     {
-        if(Input.GetKeyDown(KeyCode.Q))
+        CheckMoveInput();
+        CheckActionInput();
+
+        if(isMoveInput)
         {
-            InputCommand(KeyCode.Q);
+            moveTime += Time.deltaTime;
         }
 
-        if (Input.GetKeyDown(KeyCode.W))
+        if (isActionInput)
         {
-            InputCommand(KeyCode.W);
+            actionTime += Time.deltaTime;
         }
 
-        if (Input.GetKeyDown(KeyCode.E))
-        {
-            InputCommand(KeyCode.E);
-        }
-        if (Input.GetKeyDown(KeyCode.R))
-        {
-            InputCommand(KeyCode.R);
-        }
-
-        if (isInput)
-        {
-            curTime += Time.deltaTime;
-        }
-
-        if (curTime >= COMMANDTIMELIMIT && commandQueue.Count >= 1)
+        // 이동 키의 입력과 액션 키의 입력이 모두 있을 때
+        if(moveTime >= COMMANDTIMELIMIT && isSkillCommand)
         {
             CheckSkill();
             PlayCommand();
 
-            curTime = 0.0f;
+            moveTime = 0.0f;
+            isSkillCommand = false;
+        }
+        else if (actionTime >= COMMANDTIMELIMIT && actionCommandQueue.Count >= 1)
+        {
+            PlayCommand();
+        }
+
+        // 이동 키만 누를 때
+        if (moveTime >= COMMANDTIMELIMIT && moveCommandQueue.Count >= 1)
+        {
+            //캐릭터 이동
+            //move();
+
+            Debug.Log("이동 : " + moveCommandQueue.Dequeue());
+            moveTime = 0.0f;
+            if (moveCommandQueue.Count == 0)
+            {
+                isMoveInput = false;
+            }
+        }
+    }
+
+    private void CheckActionInput()
+    {
+        if (Input.GetKeyDown(KeyCode.Q))
+        {
+            InputActionCommand(KeyCode.Q);
+        }
+
+        if (Input.GetKeyDown(KeyCode.W))
+        {
+            InputActionCommand(KeyCode.W);
+        }
+
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            InputActionCommand(KeyCode.E);
+        }
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            InputActionCommand(KeyCode.R);
+        }
+    }
+    private void CheckMoveInput()
+    {
+        if (Input.GetKeyDown(KeyCode.LeftArrow))
+        {
+            InputMoveCommand(KeyCode.LeftArrow);
+        }
+        if (Input.GetKeyDown(KeyCode.RightArrow))
+        {
+            InputMoveCommand(KeyCode.RightArrow);
+        }
+        if (Input.GetKeyDown(KeyCode.UpArrow))
+        {
+            InputMoveCommand(KeyCode.UpArrow);
+        }
+        if (Input.GetKeyDown(KeyCode.DownArrow))
+        {
+            InputMoveCommand(KeyCode.DownArrow);
         }
     }
 
     private void CheckSkill()
     {
-        int count = commandQueue.Count;
+        int moveCount = moveCommandQueue.Count;
+        int actionCount = actionCommandQueue.Count;
 
-        Debug.Log(count);
+        int commandResult = 0;
 
-        //세 개 이상의 커맨드를 입력했을 시 특정 기술이 나올 수 있다
-        if(count >= 3)
+        for (int k = 0; k < moveCount; k++)
         {
-            int commandResult = 0;
-            for(int i = 0; i < count; i++)
-            {
-                int command = commandQueue.Dequeue();
-                commandResult += command;
-                commandQueue.Enqueue(command);
-            }
+            int command = moveCommandQueue.Dequeue();
+            commandResult += command;
+            moveCommandQueue.Enqueue(command);
+        }
 
-            for(int j = 0; j< skillCommandCount;j++)
+        for (int i = 0; i < actionCount; i++)
+        {
+            int command = actionCommandQueue.Dequeue();
+            commandResult += command;
+            actionCommandQueue.Enqueue(command);
+        }
+
+        for (int j = 0; j < skillCommandCount; j++)
+        {
+            if (commandResult == skillCommandList[j])
             {
-                if(commandResult == skillCommandList[j])
-                {
-                    commandQueue.Clear();
-                    commandQueue.Enqueue(commandResult);
-                }
+                moveCommandQueue.Clear();
+                actionCommandQueue.Clear();
+                actionCommandQueue.Enqueue(commandResult);
+
+                Debug.Log(j + "번 스킬 커맨드 입력 커맨드 값 : " + skillCommandList[j]);
             }
         }
+
     }
 }
 
